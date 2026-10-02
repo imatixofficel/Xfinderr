@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="description" content="Xfinder — کانفیگ‌های تست‌شده V2Ray و WireGuard با IP تمیز">
+<link rel="icon" href="assets/img/favicon.png">
+<title>Xfinder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=Unbounded:wght@700;800&family=Inter:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="load" id="loader" aria-live="polite">
+  <div class="orbit"></div>
+  <div class="wm" data-wm="Xfinder"></div>
+  <div class="god"><b data-i="god1">به نام خدا</b><small>IN THE NAME OF GOD</small></div>
+  <div class="track"><i id="bar"></i></div>
+</div>
+
+<div class="app">
+  <aside class="side" id="side">
+    <div class="wm" data-wm="Xfinder"></div>
+    <div class="profile"><img src="assets/img/logo.png" alt=""><div><b data-i="hello">کاربر Xfinder</b><small>@xfinder</small></div><span class="pro">Free</span></div>
+    <div class="cap" data-i="menu">منو</div>
+    <button class="nav on" data-go="dashboard"><svg class="i" data-ic="grid"></svg><span data-i="dashboard">داشبورد</span></button>
+    <button class="nav" data-go="configs"><svg class="i" data-ic="list"></svg><span data-i="configs">کانفیگ‌ها</span><em id="navCount">0</em></button>
+    <button class="nav" data-go="wireguard"><svg class="i" data-ic="shield"></svg><span>WireGuard</span><em id="navWg">0</em></button>
+    <button class="nav" data-go="sources"><svg class="i" data-ic="globe"></svg><span data-i="sources">منابع</span></button>
+    <div class="cap" data-i="system">سیستم</div>
+    <button class="nav" data-go="settings"><svg class="i" data-ic="gear"></svg><span data-i="settings">تنظیمات</span></button>
+    <div class="promo"><span class="tag">AUTO</span><div class="orb"><svg class="i" data-ic="bolt"></svg></div><p data-i="promo">کانفیگ‌ها <b>هر ۱۰ دقیقه</b><br>خودکار تازه می‌شوند</p></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <main class="main">
+    <div class="top">
+      <button class="burger" id="burger" aria-label="menu"><svg class="i" data-ic="menu"></svg></button>
+      <div class="crumb">Xfinder / <b id="crumb">Dashboard</b></div>
+      <label class="search t"><svg class="i" data-ic="search"></svg><input id="gs" data-ip="search" placeholder="جستجو" aria-label="search"></label>
+      <button class="sq" id="lang" aria-label="language"><span class="latin" style="font-weight:700;font-size:12px">FA</span></button>
+      <button class="pill" id="refresh"><svg class="i" data-ic="refresh"></svg><span data-i="refresh">بروزرسانی</span></button>
+    </div>
+
+    <section class="sec on" id="dashboard">
+      <div class="head"><div><h1 data-i="welcome">به Xfinder خوش آمدید!</h1><p class="sub"><span data-i="updated">آخرین بروزرسانی</span>: <span id="upd">—</span></p></div></div>
+      <div class="grid3">
+        <div class="card qs">
+          <div class="skel"><i></i><i></i><i></i></div>
+          <h3 data-i="qs_t">اشتراک شخصی خودت را بساز</h3>
+          <p class="m" data-i="qs_d">همه کانفیگ‌های سالم در یک لینک؛ در برنامه‌ات وارد کن و تمام.</p>
+          <button class="pill" id="copySub"><span data-i="qs_b">کپی لینک اشتراک</span></button>
+        </div>
+        <div class="card">
+          <div class="chart-h"><h3 class="latin">Latency / Top 7</h3><span class="chipg latin" id="liveChip">LIVE</span></div>
+          <div class="legend"><span><i style="background:#fff"></i>TCP</span><span><i style="background:#666"></i>Clean IP</span></div>
+          <div class="bars" id="bars"></div><div class="xl" id="xl"></div>
+          <div class="big"><strong id="alivePct">0<small>%</small></strong><span><span class="chip" id="remixChip">+0</span> <span class="sub" data-i="remixed_l">ترکیب با IP تمیز</span></span></div>
+        </div>
+        <div class="card">
+          <h3 data-i="proto_t">پروتکل‌ها</h3>
+          <div class="tabs" id="protoTabs"></div>
+          <div class="list" id="protoList"></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="card"><div class="chart-h"><h3 data-i="assets">کانفیگ‌ها</h3><span class="chipg latin" id="cnt1">0</span></div><div id="t1"></div></div>
+        <div class="card det" id="detail"></div>
+      </div>
+    </section>
+
+    <section class="sec" id="configs">
+      <div class="head"><div><h2 data-i="configs">کانفیگ‌ها</h2><p class="sub" data-i="configs_d">اول کانفیگ‌های ترکیب‌شده با IP تمیز نمایش داده می‌شوند.</p></div></div>
+      <div class="card"><div id="t2"></div></div>
+    </section>
+
+    <section class="sec" id="wireguard">
+      <div class="head"><div><h2>WireGuard</h2><p class="sub" data-i="wg_d">با Cloudflare WARP و IP تمیز. فایل .conf را دانلود کن یا لینک را کپی کن.</p></div></div>
+      <div class="card gen"><div><h3 data-i="wg_gen_t">ساخت کانفیگ اختصاصی</h3><p class="m" data-i="wg_gen_d">کلید در مرورگر خودت ساخته می‌شود و فقط برای تو است.</p></div><button class="pill" id="genWg"><span data-i="wg_gen_b">بساز</span></button></div>
+      <div class="wgrid" id="wgList"></div>
+    </section>
+
+    <section class="sec" id="sources">
+      <div class="head"><div><h2 data-i="sources">منابع</h2><p class="sub" data-i="src_d">منابع معتبر و امتیاز اعتماد آن‌ها</p></div></div>
+      <div class="sgrid" id="srcList"></div>
+    </section>
+
+    <section class="sec" id="settings">
+      <div class="head"><div><h2 data-i="settings">تنظیمات</h2></div></div>
+      <div class="set">
+        <div class="row"><span data-i="lang_l">زبان</span><button class="ghost" id="lang2">فارسی / English</button></div>
+        <div class="row"><span data-i="sub_l">لینک‌های اشتراک</span><button class="ghost" id="subLinks">کپی همه</button></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="modal" id="qr"><div class="mb"><button class="x" id="qx">×</button><h3 class="latin">QR</h3><img id="qimg" alt="QR"><code id="qtxt"></code><button class="pill" id="qcopy" style="margin:auto"><span data-i="copy">کپی</span></button></div></div>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

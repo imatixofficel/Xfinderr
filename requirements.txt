@@ -1,0 +1,2 @@
+# Xfinder backend intentionally uses the Python standard library only.
+# No third-party package is required for the collector/validator pipeline.

@@ -1,0 +1,14 @@
+# Generated runtime data — never commit these from the collector.
+data/configs.json
+data/raw_configs.json
+data/validated.json
+data/remixed.json
+data/scan.json
+data/warp_accounts.json
+output/*.txt
+output/remixed/*
+sources.db
+_site/
+.tools/
+__pycache__/
+*.pyc

@@ -1,0 +1,99 @@
+name: Xfinder Auto Update
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: xfinder-pages
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  XRAY_CONCURRENCY: "24"
+  XRAY_PROBE_TIMEOUT: "10"
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source only
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq curl unzip ca-certificates
+
+      - name: Install latest Xray-core
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .tools
+          python - <<'PY'
+          import json, urllib.request
+          api='https://api.github.com/repos/XTLS/Xray-core/releases/latest'
+          req=urllib.request.Request(api,headers={'Accept':'application/vnd.github+json','User-Agent':'Xfinder'})
+          rel=json.load(urllib.request.urlopen(req,timeout=20))
+          assets=rel.get('assets',[])
+          asset=next((a for a in assets if a['name']=='Xray-linux-64.zip'),None)
+          if not asset: raise SystemExit('Xray-linux-64.zip not found')
+          print(asset['browser_download_url'])
+          urllib.request.urlretrieve(asset['browser_download_url'],'.tools/xray.zip')
+          PY
+          unzip -oq .tools/xray.zip -d .tools/xray
+          chmod +x .tools/xray/xray
+          echo "XRAY_BIN=$GITHUB_WORKSPACE/.tools/xray/xray" >> "$GITHUB_ENV"
+
+      - name: Install Python package set
+        run: pip install -r requirements.txt
+
+      - name: Collect → TCP → Xray → Clean-IP scan → Remix → Xray
+        run: python -m src.main
+
+      - name: Build GitHub Pages artifact
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp index.html _site/
+          cp -R assets _site/assets
+          cp -R data _site/data
+          cp -R output _site/output
+          test -s _site/data/configs.json
+          test -s _site/output/all.txt || true
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Summary
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('data/configs.json',encoding='utf-8'))
+          s=d.get('stats',{})
+          print('verified:',s.get('verified',0))
+          print('remixed:',s.get('remixed',0))
+          print('clean_ips:',s.get('clean_ips',0))
+          print('updated_at:',d.get('updated_at'))
+          PY

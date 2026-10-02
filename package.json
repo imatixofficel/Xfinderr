@@ -1,0 +1,14 @@
+{
+  "name": "xfinder",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Xfinder Live Node Panel — GitHub Pages + Python collector",
+  "scripts": {
+    "dev": "python -m http.server 8000 --directory .",
+    "check": "python -m compileall src",
+    "collect": "python -m src.main"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
