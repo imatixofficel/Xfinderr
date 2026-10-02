@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+*.log
+# Never commit WARP/WireGuard private-key state.
+data/warp_accounts.json

@@ -1,47 +1,63 @@
-"""ساخت نسخه‌های Remix با IPهای تمیز؛ پارامترهای TLS/SNI/Host حفظ می‌شوند."""
-import base64,json,re
-from urllib.request import Request,urlopen
-from .config import CLEAN_IPS_URL,MAX_REMIX_PING,REMIX_PER_CONFIG
+"""Combine validated configs with IPs/ports that were actually observed open."""
+import base64, json
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
+from .config import REMIX_BASE_LIMIT, REMIX_PER_CONFIG
 
-def fetch_clean():
-    try:
-        req=Request(CLEAN_IPS_URL,headers={"User-Agent":"Xfinder/1.1"})
-        raw=urlopen(req,timeout=15).read().decode("utf-8","ignore")
-        data=json.loads(raw)
-        if isinstance(data,dict):data=data.get("ips") or data.get("data") or data.get("results") or []
-        out=[]
-        for x in data:
-            if isinstance(x,str):out.append({"ip":x,"ping":0})
-            elif isinstance(x,dict):out.append({"ip":x.get("ip") or x.get("address"),"ping":x.get("ping",x.get("ping_ms",999))})
-        return [x for x in out if x["ip"] and float(x["ping"] or 999)<=MAX_REMIX_PING]
-    except Exception as e:
-        print("clean ip source failed:",e);return []
 
-def remix_config(cfg,new_ip):
-    proto=cfg.split("://",1)[0].lower()
-    if proto=="vmess":
+def remix_config(cfg, new_ip, new_port=None):
+    proto = cfg.split("://", 1)[0].lower()
+    if proto == "vmess":
         try:
-            raw=cfg.split("://",1)[1].split("#",1)[0];raw += "="*((4-len(raw)%4)%4)
-            obj=json.loads(base64.b64decode(raw).decode("utf-8","ignore"));obj["add"]=new_ip
-            label=cfg.split("#",1)[1] if "#" in cfg else "Xfinder-remix"
-            body=base64.b64encode(json.dumps(obj,separators=(",",":"),ensure_ascii=False).encode()).decode().rstrip("=")
-            return "vmess://"+body+"#"+label
-        except Exception:pass
-    return re.sub(r"(?<=@)(?:\[[^\]]+\]|[^:/?#]+)",new_ip,cfg,count=1)
+            raw = cfg.split("://", 1)[1].split("#", 1)[0]
+            raw += "=" * ((4-len(raw)%4)%4)
+            obj = json.loads(base64.b64decode(raw).decode("utf-8", "ignore"))
+            old = obj.get("add", "")
+            old_port = obj.get("port", 443)
+            obj["add"] = new_ip
+            if new_port: obj["port"] = str(new_port)
+            if not obj.get("sni") and obj.get("tls"): obj["sni"] = obj.get("host") or old
+            if not obj.get("host"): obj["host"] = old
+            label = cfg.split("#", 1)[1] if "#" in cfg else "Xfinder-remix"
+            body = base64.b64encode(json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode()).decode().rstrip("=")
+            return "vmess://" + body + "#" + label
+        except Exception:
+            return cfg
+    try:
+        parts = urlsplit(cfg)
+        if not parts.hostname: return cfg
+        netloc = parts.netloc.replace(parts.hostname, new_ip, 1)
+        if new_port:
+            userinfo = ""
+            if "@" in netloc: userinfo, _ = netloc.rsplit("@", 1); userinfo += "@"
+            netloc = userinfo + new_ip + ":" + str(new_port)
+        q = parse_qs(parts.query, keep_blank_values=True)
+        old = parts.hostname
+        if proto in {"vless", "trojan"}:
+            if q.get("security", [""])[0] in {"tls", "reality"} and not q.get("sni"): q["sni"] = [old]
+            if q.get("type", [""])[0] in {"ws", "websocket"} and not q.get("host"): q["host"] = [old]
+        return urlunsplit((parts.scheme, netloc, parts.path, urlencode(q, doseq=True), parts.fragment))
+    except Exception:
+        return cfg
 
-def build(items):
-    ips=fetch_clean()
-    if not ips:return items,[]
-    remixed=[]
-    for item in items:
-        if item.get("protocol") not in {"vless","vmess","trojan"}:continue
-        for clean in ips[:REMIX_PER_CONFIG]:
-            r=dict(item);r["config"]=remix_config(item["config"],clean["ip"]);r["server"]=clean["ip"];r["is_remixed"]=True
-            r["remix_ping_ms"]=clean["ping"];remixed.append(r)
-    return items,remixed
 
-if __name__=="__main__":
-    import json
-    data=json.load(open("data/validated.json",encoding="utf-8"));_,r=build(data)
-    json.dump(r,open("data/remixed.json","w",encoding="utf-8"),ensure_ascii=False,indent=2)
-    print("remixed:",len(r))
+def build_with(items, ips):
+    if not ips: return items, []
+    base = sorted(items, key=lambda x: (-(int(x.get("trust_score") or 0)), x.get("tcp_ping_ms") or 999999))[:REMIX_BASE_LIMIT]
+    by_port = {}
+    for ip in ips:
+        by_port.setdefault(int(ip.get("port") or 0), []).append(ip)
+    remixed = []
+    for item in base:
+        if item.get("protocol") not in {"vless", "vmess", "trojan"}: continue
+        try: port = int(item.get("port") or 443)
+        except Exception: port = 443
+        candidates = by_port.get(port, [])[:REMIX_PER_CONFIG]
+        for clean in candidates:
+            r = dict(item)
+            r["config"] = remix_config(item["config"], clean["ip"], port)
+            r["server"] = clean["ip"]; r["port"] = port; r["is_remixed"] = True
+            r["source"] = item.get("source", "") + " + ScannedCleanIP"
+            r["remix_ping_ms"] = clean.get("ping")
+            r["clean_ip_source_port"] = clean.get("port")
+            remixed.append(r)
+    return items, remixed

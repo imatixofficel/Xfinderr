@@ -56,19 +56,30 @@ def extract(text):
         except Exception:pass
     cleaned=[]
     for u in found:
-        u=u.rstrip(".,;)]}")
-        if u not in cleaned:cleaned.append(u)
+        u = u.rstrip(".,;)]}")
+        # Drop obviously truncated query/JSON fragments instead of publishing
+        # malformed share links such as `extra={`.
+        if u.count("{") != u.count("}") or u.count("[") != u.count("]"):
+            continue
+        if "://" not in u or len(u.split("://", 1)[1]) < 8:
+            continue
+        if u not in cleaned: cleaned.append(u)
     return cleaned
 
+SOURCE_STATS=[]
+
 async def collect():
-    loop=asyncio.get_running_loop();out=[]
+    loop=asyncio.get_running_loop();out=[];SOURCE_STATS.clear()
     async def one(src):
         if any(b.lower() in src["name"].lower() for b in BLACKLIST):return []
         try:
             text=await loop.run_in_executor(None,fetch,src["url"])
-            return [{"config":cfg,"source":src["name"],"trust_score":src["trust"]} for cfg in extract(text)]
+            items=[{"config":cfg,"source":src["name"],"trust_score":src["trust"]} for cfg in extract(text)]
+            SOURCE_STATS.append({"name":src["name"],"trust":src["trust"],"count":len(items),"ok":bool(items)})
+            return items
         except Exception as e:
-            print("source failed:",src["name"],e);return []
+            print("source failed:",src["name"],e)
+            SOURCE_STATS.append({"name":src["name"],"trust":src["trust"],"count":0,"ok":False});return []
     batches=await asyncio.gather(*(one(s) for s in SOURCES))
     for batch in batches:out.extend(batch)
     return out

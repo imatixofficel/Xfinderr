@@ -1,115 +1,59 @@
-# Xfinder — Live Node Panel
+# Xfinder
 
-پنل Xfinder برای GitHub Pages با رابط تاریک الهام‌گرفته از داشبورد مرجع، فونت Vazirmatn، RTL/LTR، لودر «به نام خدا»، جدول کانفیگ‌ها و Collector پایتون.
+Xfinder یک جمع‌آورنده و **اعتبارسنج شبکه‌ای** برای کانفیگ‌های عمومی است.
+Pipeline هر اجرا:
 
-## نکته مهم درباره «کانفیگ‌ها نمی‌آیند»
+1. کانفیگ‌ها را از منابع تعریف‌شده دریافت می‌کند.
+2. موارد تکراری و لینک‌های ناقص را حذف می‌کند.
+3. **تمام کانفیگ‌های جمع‌آوری‌شده را تست می‌کند**؛ TCP و برای TLS/HTTP، handshake/transport probe هم انجام می‌شود.
+4. فقط مواردی که تست را پاس کرده‌اند وارد خروجی اصلی می‌شوند.
+5. IPهای موجود در منبع Clean IP را با یک اسکنر محدود و فقط روی IPهای همان منبع و پورت‌های موردنیاز پروژه بررسی می‌کند.
+6. کانفیگ‌های VLESS/VMess/Trojan با IPهایی که واقعاً روی همان پورت پاسخ داده‌اند ترکیب می‌شوند.
+7. **هر کانفیگ Remix بعد از ترکیب دوباره تست می‌شود** و فقط Remixهای تأییدشده منتشر می‌شوند.
+8. خروجی‌های `output/*.txt` و `data/configs.json` به‌روزرسانی می‌شوند.
 
-GitHub Pages فقط Frontend است و نمی‌تواند Python را اجرا کند. بنابراین مسیر درست این است:
+> نکته: تست فعلی «تست transport/endpoint» است و ادعا نمی‌کند که با خود Xray تمام مراحل احراز هویت هر پروتکل را شبیه‌سازی کرده است. برای VLESS/VMess/Trojan، TCP/TLS و در صورت وجود WebSocket/HTTP transport بررسی می‌شود.
 
-1. GitHub Actions اجرا شود.
-2. منابع جمع‌آوری شوند.
-3. کانفیگ‌ها TCP Validate شوند.
-4. خروجی `data/configs.json` ساخته شود.
-5. GitHub Actions فایل را commit کند.
-6. GitHub Pages همان فایل را نمایش دهد.
+## امنیت
 
-نسخه جدید لودر را مستقل از شبکه کرده است؛ بنابراین اگر API یا IP detection خطا داشته باشد، لودر دیگر روی «در حال اتصال به منابع...» گیر نمی‌کند.
+- اسکنر فقط IPهایی را بررسی می‌کند که از `CLEAN_IPS_URL` دریافت شده‌اند؛ CIDR یا رنج دلخواه از کاربر نمی‌گیرد.
+- کلید خصوصی WARP در مخزن عمومی ذخیره یا منتشر نمی‌شود.
+- `data/warp_accounts.json` در `.gitignore` است.
+- WireGuard/WARP سروری به‌صورت خودکار در خروجی عمومی ساخته نمی‌شود تا private key منتشر نشود.
 
-## نصب
+## GitHub Actions
+
+Workflow هر ۱۰ دقیقه اجرا می‌شود و برای اجرای دستی نیز `workflow_dispatch` دارد.
+
+```text
+python -m compileall -q src
+python -m src.main
+```
+
+برای تست محلی:
 
 ```bash
-git clone https://github.com/USERNAME/xfinder.git
-cd xfinder
 python -m src.main
-python -m http.server 8000 --directory .
 ```
 
-سپس:
+خروجی‌ها:
 
 ```text
-http://localhost:8000
+output/all.txt
+output/vless.txt
+output/vmess.txt
+output/trojan.txt
+output/ss.txt
+output/hysteria2.txt
+output/wireguard.txt
+
+data/configs.json
+data/raw_configs.json
+data/validated.json
+data/remixed.json
+data/scanned_clean_ips.json
 ```
 
-## فعال‌کردن GitHub Pages
+## نکته
 
-در GitHub:
-
-`Settings → Pages → Deploy from a branch → main → / (root)`
-
-## اجرای اولین جمع‌آوری
-
-بعد از Push، از مسیر زیر Workflow را یک بار دستی اجرا کنید:
-
-`Actions → Xfinder Auto Update → Run workflow`
-
-پس از موفقیت Workflow، فایل `data/configs.json` و فایل‌های `output/*.txt` تغییر می‌کنند و صفحه آنها را نشان می‌دهد.
-
-Workflow زمان‌بندی‌شده نیز هر ۱۰ دقیقه تعریف شده است؛ زمان واقعی شروع Scheduled Actions ممکن است چند دقیقه جابه‌جا شود.
-
-## ساختار
-
-```text
-xfinder/
-├── index.html
-├── assets/
-│   ├── css/
-│   ├── js/
-│   ├── img/logo.svg
-│   └── fonts/
-├── data/configs.json
-├── output/
-├── src/
-│   ├── config.py
-│   ├── trust_scorer.py
-│   ├── health_monitor.py
-│   ├── finder.py
-│   ├── validator.py
-│   ├── remixer.py
-│   ├── publisher.py
-│   └── main.py
-└── .github/workflows/collect.yml
-```
-
-## ویژگی‌های Frontend
-
-- سایدبار سمت چپ و ظاهر Dark Dashboard
-- کارت‌های آماری
-- فیلتر پروتکل و جستجوی زنده
-- کپی کانفیگ و QR
-- RTL/LTR
-- تشخیص زبان از localStorage، زبان مرورگر و در نهایت IP
-- حالت Dark/Light
-- لودر Wandering Eyes با «به نام خدا»
-- لودر مستقل از API و دارای timeout قطعی
-- نمایش وضعیت داده به‌جای گیرکردن روی Loading
-
-## ویژگی‌های Backend
-
-- جمع‌آوری موازی ۶ منبع
-- پشتیبانی از URI مستقیم و Base64 subscription
-- استخراج VMess JSON
-- تست TCP با `asyncio.Semaphore(400)` و timeout پنج ثانیه
-- حذف نودهای مرده
-- Remix با IPهای تمیز و حفظ پارامترهای SNI/Host
-- تولید فایل‌های پروتکل و `all.txt`
-- تولید `data/configs.json`
-
-## وضعیت HTTP Test
-
-برای اینکه عدد HTTP به‌عنوان «تست واقعی» جعل نشود، نسخه فعلی مقدار `http_ping_ms` را فقط زمانی منتشر می‌کند که Collector واقعاً آن را تولید کرده باشد. TCP باز بودن پورت به‌تنهایی HTTP health محسوب نمی‌شود.
-
-## منابع
-
-منابع دقیق در `src/config.py` تعریف شده‌اند. در صورت خراب یا حذف شدن یک منبع، Collector آن منبع را در لاگ Workflow گزارش می‌کند و اجرای سایر منابع را ادامه می‌دهد.
-
-## مجوز و مسئولیت
-
-منابع عمومی ممکن است تغییر کنند یا حذف شوند. قبل از استفاده از هر کانفیگ، قوانین شبکه و ارائه‌دهنده سرویس خود را رعایت کنید.
-
-
-## طراحی جدید Xfinder
-- لوگوی دایره‌ای بر اساس فایل لوگوی پروژه.
-- فونت محلی `Vazirmatn-Black.ttf` داخل `assets/fonts/`.
-- لودر Spokes با CSS خالص، معادل بصری `@loading-ui/spokes`؛ بنابراین برای اجرای GitHub Pages نیازی به React یا pnpm نیست.
-- بخش «کانفیگ‌ها» تمام داده‌های `data/configs.json` را نمایش می‌دهد و QR همان‌جا در Modal باز می‌شود.
-- QR از یک سرویس تولید QR سمت کلاینت استفاده می‌کند؛ اگر می‌خواهید کاملاً بدون سرویس خارجی باشد، می‌توان QR library را به‌صورت محلی اضافه کرد.
+کانفیگ‌های عمومی ممکن است هر لحظه از کار بیفتند. Xfinder فقط مواردی را که در زمان اجرای Pipeline تست شده‌اند منتشر می‌کند و تضمین دائمی برای اتصال ارائه نمی‌دهد.
